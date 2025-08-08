@@ -1,56 +1,57 @@
+// 修改版 index.js，使用 OpenRouter 免費 GPT 模型
 import express from 'express';
-import { middleware, Client } from '@line/bot-sdk';
+import { Configuration, OpenAIApi } from 'openai';
+import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
-import cron from 'node-cron';
-import OpenAI from 'openai';
-
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 10000;
+const port = process.env.PORT || 10000;
 
-const lineConfig = {
-  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
-  channelSecret: process.env.LINE_CHANNEL_SECRET,
-};
+app.use(bodyParser.json());
 
-const lineClient = new Client(lineConfig);
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const configuration = new Configuration({
+  apiKey: process.env.OPENROUTER_API_KEY,
+  basePath: 'https://openrouter.ai/api/v1'
+});
 
-app.get('/webhook', (_req, res) => res.status(200).send('OK'));
+const openai = new OpenAIApi(configuration);
 
-app.post('/webhook', middleware(lineConfig), async (req, res) => {
-  res.status(200).end();
+app.get('/', (_req, res) => {
+  res.send('Line GPT bot is running');
+});
 
-  const events = req.body?.events || [];
-  for (const event of events) {
-    if (event.type !== 'message' || event.message.type !== 'text') continue;
+app.post('/webhook', async (req, res) => {
+  try {
+    const events = req.body.events;
+    for (const event of events) {
+      if (event.type === 'message' && event.message.type === 'text') {
+        const userMessage = event.message.text;
 
-    const userMessage = event.message.text;
-    const replyToken = event.replyToken;
+        const completion = await openai.createChatCompletion({
+          model: 'openrouter/openai/gpt-3.5-turbo',
+          messages: [
+            {
+              role: 'system',
+              content: '你是一位健談、機智幽默、溫柔鼓勵的 AI 女友，說話方式像 Z 世代，像女友一樣跟使用者聊天。'
+            },
+            { role: 'user', content: userMessage }
+          ]
+        });
 
-    try {
-      const chatCompletion = await openai.chat.completions.create({
-        model: 'gpt-4o',
-        messages: [
-          { role: 'system', content: '你是使用者的女朋友，語氣要溫柔、可愛、甜。' },
-          { role: 'user', content: userMessage },
-        ],
-      });
+        const replyMessage = completion.data.choices[0].message.content;
 
-      const aiReply = chatCompletion.choices[0]?.message?.content || '我不知道怎麼回答你 >_<';
-      await lineClient.replyMessage(replyToken, {
-        type: 'text',
-        text: aiReply,
-      });
-    } catch (err) {
-      console.error('Reply error:', err);
+        // 這裡可以加上 LINE 回傳訊息的程式碼
+        console.log(`Reply to user: ${replyMessage}`);
+      }
     }
+    res.sendStatus(200);
+  } catch (err) {
+    console.error('Reply error:', err);
+    res.sendStatus(500);
   }
 });
 
-app.get('/health', (_req, res) => res.status(200).send('OK'));
-
-app.listen(PORT, () => {
-  console.log(`Bot is live on port ${PORT}`);
+app.listen(port, () => {
+  console.log(`Bot is live on port ${port}`);
 });
