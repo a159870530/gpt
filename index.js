@@ -1,8 +1,8 @@
-// 修改版 index.js，使用 OpenRouter 免費 GPT 模型
+// 修改版 index.js，使用 OpenRouter 免費 GPT 模型（修正 openai 套件不支援 Configuration）
 import express from 'express';
-import { Configuration, OpenAIApi } from 'openai';
 import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
+import OpenAI from 'openai';
 dotenv.config();
 
 const app = express();
@@ -10,12 +10,10 @@ const port = process.env.PORT || 10000;
 
 app.use(bodyParser.json());
 
-const configuration = new Configuration({
+const openai = new OpenAI({
   apiKey: process.env.OPENROUTER_API_KEY,
-  basePath: 'https://openrouter.ai/api/v1'
+  baseURL: 'https://openrouter.ai/api/v1'
 });
-
-const openai = new OpenAIApi(configuration);
 
 app.get('/', (_req, res) => {
   res.send('Line GPT bot is running');
@@ -28,7 +26,7 @@ app.post('/webhook', async (req, res) => {
       if (event.type === 'message' && event.message.type === 'text') {
         const userMessage = event.message.text;
 
-        const completion = await openai.createChatCompletion({
+        const completion = await openai.chat.completions.create({
           model: 'openrouter/openai/gpt-3.5-turbo',
           messages: [
             {
@@ -39,7 +37,7 @@ app.post('/webhook', async (req, res) => {
           ]
         });
 
-        const replyMessage = completion.data.choices[0].message.content;
+        const replyMessage = completion.choices[0].message.content;
 
         // 這裡可以加上 LINE 回傳訊息的程式碼
         console.log(`Reply to user: ${replyMessage}`);
