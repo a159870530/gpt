@@ -26,8 +26,7 @@ app.get('/webhook', (_req, res) => {
 // 2️⃣ POST /webhook：簽名驗證 → JSON 解析 → 處理
 app.post(
   '/webhook',
-  middleware(lineConfig),    // LINE middleware 驗證簽名並填 req.body
-  express.json(),            // 解析 JSON body
+  middleware(lineConfig),    // LINE middleware 驗證簽名並解析 body
   async (req, res) => {
     res.status(200).end();    // 先回 200，防止 LINE 重試
 
@@ -50,6 +49,26 @@ app.post(
           }
           try {
             await client.replyMessage(e.replyToken, { type: 'text', text: replyText });
+          } catch (err) {
+            console.error('replyMessage error:', err);
+          }
+
+        } else if (e.type === 'follow') {
+          try {
+            await client.replyMessage(e.replyToken, {
+              type: 'text',
+              text: '你好，我會陪著你～一段時間沒出現，我會主動找你喔。'
+            });
+          } catch (err) {
+            console.error('reply on follow error:', err);
+          }
+        }
+      } catch (err) {
+        console.error('Webhook event loop error:', err);
+      }
+    }
+  }
+);
           } catch (err) {
             console.error('replyMessage error:', err);
           }
